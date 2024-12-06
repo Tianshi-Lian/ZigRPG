@@ -1,3 +1,4 @@
+const std = @import("std");
 const rl = @import("raylib");
 
 const TILE_WIDTH: u32 = 8;
@@ -61,32 +62,25 @@ fn gameUpdate() void {
 fn gameRender() void {
     rl.beginMode2D(camera);
 
-    var last_tile: Tile = undefined;
-    var tex_index_x: i32 = 0;
-    var tex_index_y: i32 = 0;
+    const tex_index_x: i32 = 4;
+    const tex_index_y: i32 = 4;
+
+    const source_rec = rl.Rectangle{
+        .x = @floatFromInt(tex_index_x * TILE_WIDTH),
+        .y = @floatFromInt(tex_index_y * TILE_HEIGHT),
+        .width = @floatFromInt(TILE_WIDTH),
+        .height = @floatFromInt(TILE_HEIGHT),
+    };
+
+    const origin = rl.Vector2{ .x = 0, .y = 0 };
+
     for (world) |row| {
         for (row) |tile| {
-            last_tile = tile;
-            tex_index_x = 4;
-            tex_index_y = 4;
-
-            const source_rec = rl.Rectangle{
-                .x = @floatFromInt(tex_index_x * TILE_WIDTH),
-                .y = @floatFromInt(tex_index_y * TILE_HEIGHT),
-                .width = @floatFromInt(TILE_WIDTH),
-                .height = @floatFromInt(TILE_HEIGHT),
-            };
-
             const dest_rec = rl.Rectangle{
                 .x = @floatFromInt(tile.x * TILE_WIDTH),
                 .y = @floatFromInt(tile.y * TILE_HEIGHT),
                 .width = @floatFromInt(TILE_WIDTH),
                 .height = @floatFromInt(TILE_HEIGHT),
-            };
-
-            const origin = rl.Vector2{
-                .x = 0,
-                .y = 0,
             };
 
             rl.drawTexturePro(textures[@intFromEnum(TextureAsset.TextureTilemap)], source_rec, dest_rec, origin, 0.0, rl.Color.white);
@@ -123,6 +117,7 @@ pub fn main() anyerror!void {
     rl.setTargetFPS(60);
 
     gameStartup();
+    defer gameShutdown();
 
     while (!rl.windowShouldClose()) {
         gameUpdate();
@@ -133,6 +128,33 @@ pub fn main() anyerror!void {
         rl.clearBackground(rl.Color.gray);
         gameRender();
     }
+}
 
-    gameShutdown();
+test "camera zoom constraints" {
+    // Setup
+    gameStartup();
+    defer gameShutdown();
+
+    // Test minimum zoom
+    camera.zoom = 2.0;
+    gameUpdate();
+    try std.testing.expectEqual(camera.zoom, 3.0);
+
+    // Test maximum zoom
+    camera.zoom = 9.0;
+    gameUpdate();
+    try std.testing.expectEqual(camera.zoom, 8.0);
+}
+
+test "world initialization" {
+    gameStartup();
+    defer gameShutdown();
+
+    // Test that world tiles are initialized with correct coordinates
+    for (world, 0..) |row, i| {
+        for (row, 0..) |tile, j| {
+            try std.testing.expectEqual(tile.x, @as(i32, @intCast(i)));
+            try std.testing.expectEqual(tile.y, @as(i32, @intCast(j)));
+        }
+    }
 }
